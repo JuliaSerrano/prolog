@@ -1,1 +1,7 @@
 *.itf
+code.cachedoc/
+*.dvi
+*.infoindex
+*.texi
+*.ps
+code.html/
