@@ -109,7 +109,7 @@ add_os(List,[o|Result]):-
 
 %LAST_O/2
 :- pred last_o(X, L)
-#"Predicado que comprueba si el c@'{u}ltimo elemento de la lista
+#"Predicado que comprueba si el @'{u}ltimo elemento de la lista
 @var{L} es @var{X}. @includedef{last_o/2}".
 
 %last element = X
@@ -294,7 +294,9 @@ cells_aux([X1,X2,X3|Xs], RuleSet, [F1|Fs]):-
 :- pred cells(InitialState,RuleSet,FinalState)
     #"Realiza un paso de evoluci@'{o}n desde @var{InitialState}
     a @var{FinalState} mediante la aplicaci@'{o}n de 
-    la codificaci@'{o}n de reglas @var{RuleSet}. @includedef{cells/3}".
+    la codificaci@'{o}n de reglas @var{RuleSet}.
+    Debe considerarse las llamadas a 'cells/3' en todos los
+    posibles modos de llamada. @includedef{cells/3}".
 
 %InitialState, RuleSet, FinalState
 cells(I,RuleSet,F):-
@@ -306,10 +308,46 @@ cells(I,RuleSet,F):-
     is_state(F),
     length_difference(I,F).    %check that I1 has 2 elems more than F1               
 
+%tests de cells
+%1)paso directo -> F como incognita, se proporciona I y R
+    %1.1)paso correcto argumentos
+:- test cells(I,RuleSet,F) : 
+    (I=[o,x,o] , RuleSet = r(x,x,x,o,o,x,o)) 
+    => (F=[o,x,x,x,o]) + not_fails.
 
+    %1.2)I no valido
+:- test cells(I,RuleSet,F) : 
+    (I=[o,x] , RuleSet = r(x,x,x,o,o,x,o)) 
+    => (O = no) + fails.
+
+%2) paso inverso -> I como incognita, se proporciona F y R
+    %2.1 F valido
+:- test cells(I,RuleSet,F) : 
+    ( RuleSet = r(x,x,x,o,o,x,o), F =[o,x,x,x,o] ) 
+    => (I=[o,x,o]) + not_fails.
+
+    %2.1 F no valido
+:- test cells(I,RuleSet,F) : 
+    ( RuleSet = r(x,x,x,o,o,x,o), F =[o,x,x] ) 
+    => (O = no) + fails.
+  
+  %3) infiere ruleset -> R como incognita, se proporciona I y F
+    %3.1 valido
+:- test cells(I,RuleSet,F) : 
+    ( I=[o,x,o], F =[o,x,x,x,o] ) 
+    => (RuleSet=r(x,x,x,_,_,_,_)) + not_fails.
+
+    %3.2 no valido
+  :- test cells(I,RuleSet,F) : 
+    ( I=[o,x,o,o], F =[o,x,x,x,o] ) 
+    => (O = no) + fails.
 %-------------------------------------------------------
             % EVOL/3
-
+:- pred evol(N,RuleSet,Cells)
+    #"Aplica @var{N} pasos de evoluci@'{o}n desde el estado inicial [o,x,o] para llegar
+    al estado @var{Cells}, aplicando la codificaci@'{o}n de reglas de @var{RuleSet}.
+    @includedef{evol/3}".
+ 
 %caso base
 evol(0,_,[o,x,o]).
 
@@ -319,26 +357,104 @@ evol(s(N),RuleSet,Cells):-
     evol(N,RuleSet,PrevCells),
     cells(PrevCells,RuleSet,Cells).
 
+%tests de evol
+%1)Cells incognita
+:- test evol(N,RuleSet,Cells) :
+    (N=0, RuleSet = r(x,x,x,o,o,x,o)) 
+    => (Cells = [o,x,o]) + not_fails #"Caso base:".
 
+:- test evol(N,RuleSet,Cells) :
+    (N=s(0),RuleSet = r(x,x,x,o,o,x,o))
+    => (Cells=[o,x,x,x,o]) + not_fails.
 
+:- test evol(N,RuleSet,Cells) :
+    (N=4,RuleSet = r(x,x,x,o,o,x,o))
+    => (O=no) + fails.
 
+%2)Infiere ruleset en evolucion
+:- test evol(N,RuleSet,Cells) :
+    (N=s(0))
+    => (Cells=[o,o,o,o,o], RuleSet=r(o,o,o,_,_,_,_)) + not_fails.
+
+:- test evol(N,RuleSet,Cells) :
+    (N=s(s(0)))
+    => (Cells=[o,o,o,o,o], RuleSet=r(o,o,o,_,_,_,_)) + not_fails.
 
 %-------------------------------------------------------
             % STEPS/2
+:- pred steps(Cells,N)
+    #"Predicado preliminar a 'ruleset/2' donde @var{N} es
+    el n@'{u}mero de pasos necesarios para llegar del estado
+    inicial [o,x,o] al estado @var{Cells}.
+    @includedef{steps/2}".
 
 steps(Cells,N):-
     is_state(Cells),
     natural(N),
     evol(N,_,Cells).
 
+%tests de steps
+%1)verificaciones de argumentos
+    %1.1)
+:- test cells(Cells,N) :
+    (Cells=[o,x,x])
+    => (O=no) + fails.
+    %1.2)
+:- test cells(Cells,N) :
+    (Cells = [o,x,o], N=s(0))
+    => (O=no) + fails.
 
+%2)pruebas not_fails
+    %2.1) entrada Cells
+:- test cells(Cells,N) :
+    (Cells=[o,x,o])
+    => (N=0) + not_fails.
+
+:- test cells(Cells,N) :
+    (Cells=[o,x,x,o,x,x,x,x,o])
+    => (N=s(s(s(0)))) + not_fails.
+
+    %2.2)entrada N
+:- test cells(Cells,N) :
+    (N=s(s(s(0))))
+    => (Cells=[o,o,o,o,o,o,o,o,o]) + not_fails.
+
+:- test cells(Cells,N) :
+    (N=s(s(s(s(0)))))
+    => (Cells=[o,o,o,o,o,o,o,o,o,o,o] ) + not_fails.
 %-------------------------------------------------------
             % RULESET/2
+:- pred ruleset(RuleSet,Cells)
+    #"Predicado que nos permite tanto descubrir los aut@'{o}matas
+    que llegan a una configuraci@'{o}n dada como probar su existencia. Aplicando la codificaci@'{o}n de reglas de @var{RuleSet}, nos muestra el
+    estado @var{Cells}, al que es posible llegar desde el estado inicial
+    [o,x,o].
+    El espacio de b@'{u}squeda es fijado mediante 'steps/2'.
+
+    @includedef{ruleset/2}".
 ruleset(RuleSet, Cells) :-
     steps(Cells, N),
     is_state(Cells),
     evol(N, RuleSet, Cells).
 
+%tests de ruleset
+%1) dado Cells
+:- test ruleset(RuleSet,Cells) :
+    (Cells = [o,x,x,o,x,x,x,x,o])
+    => (RuleSet =r(x,x,x,_,o,x,o) ) + not_fails.
 
+:- test ruleset(RuleSet,Cells) :
+    (Cells = [o,x,x,o,o,x,o,o,o,x,o])
+    => (RuleSet =r(x,x,x,o,o,x,o) ) + not_fails.
+
+%dado estado invalido
+:- test ruleset(RuleSet,Cells) :
+    (Cells = [o,x,x,o,o,x,o,o,o,x,x])
+    => (O = no) + fails. 
+
+%dado RuleSet
+:- test ruleset(RuleSet,Cells) :
+    (RuleSet = r(x,x,x,o,o,x,o))
+    => (Cells = [o,x,o]) + not_fails. 
 
     
